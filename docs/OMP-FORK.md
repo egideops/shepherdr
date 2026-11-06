@@ -23,6 +23,10 @@ were probed live against herdr-core 0.1.18 and omp 18.16.0 on 2026-11-06.
 - **Everything herdr-core already does for omp keeps working**: `hc` 0.1.18 knows omp natively
   (`status.app "omp"`, `working`/`done`, turn counts, `blocked` with the question's words while it
   waits on its `ask` tool, first-message delivery to a template). No core changes needed.
+- **The native window's own spawn path** (`mods/chat startAgent`) still starts the `assistant`
+  template: the fork covers the web app's paths (what this deployment uses). A window-first
+  install gets omp Assistants by pointing its own `assistant.md` command at omp, or by taking
+  this seam upstream.
 
 ### Degradations (known, accepted)
 
