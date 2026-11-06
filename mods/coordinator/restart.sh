@@ -77,9 +77,13 @@ if [ -n "${HERDR_RESTART_RESUME:-}" ] && [ -n "$argv" ]; then
   # omp appends the same session file it resumes (docs/OMP-FORK.md): the old process must be
   # gone before the new one starts — never two omp on one file. Other CLIs start beside the old.
   if [ "$(basename "${cmd[0]}")" = omp ] && [ "$(jq -r '.state // empty' <<<"$info")" = live ]; then
-    oldpid=$(jq -r '.foreground.pid // empty' <<<"$info")
+    shpid=$(jq -r '.foreground.pid // empty' <<<"$info")
+    # its shell dies first; the omp under it lives a moment longer, and it holds the session file
+    omppid=$(pgrep -P "${shpid:-0}" -x omp 2>/dev/null | head -1)
     hc kill "$old" >/dev/null 2>&1
-    i=0; while [ -n "$oldpid" ] && kill -0 "$oldpid" 2>/dev/null && [ "$i" -lt 150 ]; do sleep 0.1; i=$((i+1)); done
+    for w in "$shpid" "$omppid"; do
+      i=0; while [ -n "$w" ] && kill -0 "$w" 2>/dev/null && [ "$i" -lt 150 ]; do sleep 0.1; i=$((i+1)); done
+    done
   fi
   new=$(hc run --bg --json --no-parent --cwd "$cwd" "${labels[@]}" --label "herdr.agent=$(basename "${cmd[0]}")" -- "${cmd[@]}" | jq -r '.address // empty')
 elif [ -z "$argv" ] && [ "$role" = coordinator ]; then
