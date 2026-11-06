@@ -9,9 +9,9 @@ import { BgJobs } from "./bg-jobs.js";
 
 export const PAGE = 200;
 export const KEEP = 2000;
-export const KINDS = { "claude-code": "claude", claude: "claude", codex: "codex" };
+export const KINDS = { "claude-code": "claude", claude: "claude", codex: "codex", omp: "omp" };
 
-// The CLI a terminal runs, as the chat knows them ("claude", "codex"), else null.
+// The CLI a terminal runs, as the chat knows them ("claude", "codex", "omp"), else null.
 export const kindOf = (t) => KINDS[t?.status?.app] ?? KINDS[t?.foreground?.name] ?? null;
 
 export class ChatReader {
@@ -54,7 +54,7 @@ export class ChatReader {
     const pid = t?.foreground?.pid;
     if (!kind || !pid) { const was = this.state; if (was !== "none") { this.reset(); this.state = "none"; } return was !== "none"; }
     if (this.path && this.kind === kind && this.pid === pid) return false;
-    const f = await this.io.sh(FIND, ["chat", kind, String(pid)], this.machine);
+    const f = await this.io.sh(FIND, ["chat", kind, String(pid), ...(kind === "omp" ? [String(t?.foreground?.cwd ?? t?.cwd ?? ""), String(t?.created_ms ?? 0)] : [])], this.machine);
     const path = String(f.stdout ?? "").trim().split("\n").pop() ?? "";
     if (path === "pending" || !path) {
       const was = this.state;

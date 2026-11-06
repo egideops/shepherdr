@@ -21,6 +21,7 @@ settings.js: chat newspace shepherdr-settings
 dot.js: chat jump tasks
 core/tasklists.js: jump tasks
 core/chat-log.js: chat
+core/omp.js: chat chat-models newspace shepherdr-settings coordinator
 core/chat-view.js: chat
 core/screens.js: chat
 core/send.js: chat

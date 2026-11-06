@@ -83,7 +83,7 @@ export class AgentWatch {
     this.tried.add(addr);
     let t: any = null;
     try { t = JSON.parse((await this.hc(["get", addr, "--json"])).stdout || "null"); } catch {}
-    const kind = cliOf({ agent: (t?.argv ?? []).map((a: string) => String(a).split("/").pop()).find((a: string) => /^(claude|codex)$/.test(a)) });
+    const kind = cliOf({ agent: (t?.argv ?? []).map((a: string) => String(a).split("/").pop()).find((a: string) => /^(claude|codex|omp)$/.test(a)) });
     const fresh = kind ? freshArgv(kind, t?.argv) : null;
     if (!fresh || !t) return;
     if (t.state !== "live" && (t.exit_code ?? 1) === 0) return;
@@ -99,8 +99,9 @@ export class AgentWatch {
     try {
       const named = /^([a-z][a-z0-9]*)-(\d+)(?:-|$)/.exec(t.name ?? "");
       const ref = w.ref ?? (t.labels?.["herdr.task"] && named ? `${named[1].toUpperCase()}-${named[2]}` : null);
-      const tplFile = join(HOME, ".config", "herdr-core", "templates", "assistant.md");
-      const template = t.labels?.["herdr.role"] === "coordinator" && !addr.includes("/") && existsSync(tplFile) ? readFileSync(tplFile, "utf8") : null;
+    const tplFile = join(HOME, ".config", "herdr-core", "templates",
+      t?.status?.app === "omp" || String(t?.foreground?.argv?.[0] ?? t?.argv?.[0] ?? "").split("/").pop() === "omp" ? "assistant-omp.md" : "assistant.md");
+    const template = t.labels?.["herdr.role"] === "coordinator" && !addr.includes("/") && existsSync(tplFile) ? readFileSync(tplFile, "utf8") : null;
       const msg = lostMessage({ ref, template });
       if (t.state === "live") {
         // hc send pastes the line into the shell and presses Enter

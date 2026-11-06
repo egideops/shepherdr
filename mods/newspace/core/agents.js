@@ -2,7 +2,9 @@
 // rules both the window's model menu (lib/agent.js, mods/chat-models) and the web app's use. Reading an agent's own
 // settings and restarting it run where each side runs commands (lib/agent.js, service/agents.ts).
 // Shared core: the source is core/agents.js; bin/sync-shared copies it into the mods in lib/COPIES.
-export const NAMES = { claude: "Claude Code", codex: "Codex" };
+export const NAMES = { claude: "Claude Code", codex: "Codex", omp: "OMP" };
+// omp: its own adapter (core/omp.js) — argv, session and menu, parallel to the two below.
+import * as OMP from "./omp.js";
 
 // Claude Code's current models, as its /model menu offers them. `id` is what --model gets;
 // `match` the names a running agent may report for it.
@@ -102,6 +104,7 @@ export function current(kind, argv, meta, dflt) {
   argv = argv ?? [];
   meta = meta ?? {};
   dflt = dflt ?? {};
+  if (kind === "omp") return OMP.current(argv, meta);
   if (kind === "claude") {
     const alias = flag(argv, "--model") ?? dflt.model;
     let fast = dflt.fast;
@@ -149,6 +152,7 @@ export function contextWords(c) {
 // offers (Codex: its own models_cache.json; Claude Code: its /model menu), the picker searches them.
 // `dflt` is that agent's settings (defaults()); `current` its running model, kept in the list.
 export function menuFor(agent, dflt, current = null) {
+  if (agent === "omp") return OMP.menu(current);
   if (agent === "claude") {
     const models = CLAUDE_MODELS.map((m) => ({ id: m.id, name: m.name, efforts: CLAUDE_EFFORTS,
       defaultEffort: dflt?.per?.[m.match[1].replace(/\[1m\]$/, "")] ?? dflt?.effort ?? null, fast: m.id.startsWith("opus") }));
@@ -270,6 +274,7 @@ const CODEX_VALUE = new Set(["-c", "--config", "-m", "--model", "-p", "--profile
 // The old agent's flags worth keeping (permissions, folders, ...), without what is chosen again
 // or a first message.
 function kept(kind, argv) {
+  if (kind === "omp") return OMP.keptArgv(argv);
   const out = [];
   const rest = argv.slice(1);
   for (let i = 0; i < rest.length; i++) {
@@ -296,8 +301,9 @@ function kept(kind, argv) {
 // first message), or null when argv resumed none: for a fresh start once that session is gone.
 export function freshArgv(kind, argv) {
   argv = argv ?? [];
-  const at = argv.findIndex((a, i) => (i === 0 || !a.startsWith("-")) && /^(claude|codex)$/.test(String(a).split("/").pop()));
+  const at = argv.findIndex((a, i) => (i === 0 || !a.startsWith("-")) && /^(claude|codex|omp)$/.test(String(a).split("/").pop()));
   if (at < 0) return null;
+  if (kind === "omp") return OMP.freshArgv(argv);
   const rest = argv.slice(at + 1), out = [argv[at]];
   let resumed = false;
   for (let i = 0; i < rest.length; i++) {
@@ -323,6 +329,7 @@ export function freshArgv(kind, argv) {
 // `session`: the old conversation's id when it can be resumed (same agent only).
 export function argvFor(pick, old) {
   const same = pick.agent === old.agent;
+  if (pick.agent === "omp") return OMP.argvFor(pick, old);
   const flags = same ? kept(pick.agent, old.argv ?? []) : [];
   if (pick.agent === "claude") {
     const a = ["claude", ...flags];
@@ -349,12 +356,14 @@ export function argvFor(pick, old) {
 
 // The conversation's id, from its log's file name.
 export function sessionOf(kind, path) {
+  if (kind === "omp") return OMP.sessionOf(path);
   const m = kind === "claude" ? /([0-9a-f-]{36})\.jsonl$/.exec(path ?? "") : /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/.exec(path ?? "");
   return m ? m[1] : null;
 }
 
 // A copy of the conversation in a new tab beside this one, through the CLI's own fork.
 export function forkArgv(kind, argv, session) {
+  if (kind === "omp") return OMP.forkArgv(argv, session);
   argv = argv ?? [];
   // The same model, effort and speed as the original.
   const same = kind === "claude"

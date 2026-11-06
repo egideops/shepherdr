@@ -82,6 +82,9 @@ export class Hub {
       case "finished": if (old) this.terminals.set(t, { ...old, ...data, state: "finished" }); break;
       case "lost": if (old) this.terminals.set(t, { ...old, ...data, pid: null }); break;
       case "turn": if (old) this.terminals.set(t, { ...old, turn: data.turn }); break;
+      // its program changed (the exec'd CLI under a shell): a fresh terminal's pid arrives only
+      // here, without it a chat cannot find its log until the next reconnect
+      case "foreground": if (old) this.terminals.set(t, { ...old, foreground: data }); break;
       case "status": case "size": case "title": case "keep": if (old) this.terminals.set(t, { ...old, ...data }); break;
     }
     this.emit({ type: p.type, terminal: t, data });

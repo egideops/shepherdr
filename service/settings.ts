@@ -122,6 +122,13 @@ export class Settings {
   /** The branch a space's folder has checked out (Base branch's empty box says it), by space id; fetchBranch reads one. */
   branches: Record<string, string> = {};
   fetchBranch: ((s: Scope) => Promise<string>) | null = null;
+
+  /** A role's agent as its settings say (Settings › Agents): "omp" for the Assistant starts the
+   *  fork's omp template (docs/OMP-FORK.md). */
+  agentOf(role: string, scope: string | null = null): string | null {
+    const v = this.pick(scope, role, null).value;
+    return v && typeof v === "object" && typeof v.agent === "string" ? v.agent : null;
+  }
   private asked = new Set<string>();
 
   /** Every page at every level: Agents and Tasks (Everywhere and each space), Machines (all and each machine), Web.

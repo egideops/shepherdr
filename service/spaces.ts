@@ -10,6 +10,7 @@ import type { Hub } from "./hub.ts";
 import { HOME } from "./paths.ts";
 import { exec } from "./model.ts";
 import * as NS from "../core/newspace.js";
+import { assistantTemplate } from "./omp.ts";
 import * as SP from "../core/spaces.js";
 
 export const withWindow = () => existsSync(join(process.env.HERDR_APP_HOME || join(HOME, ".config", "herdr-app"), "mods", "spaces-chat"));
@@ -125,7 +126,7 @@ export async function newSpace(hub: Hub, opts: { machine: string | null; path: s
   await iconOf(machine ? `${machine}/${id}` : id);
   // Settings › Window › Assistant in new spaces off: it opens without one
   if (opts.store.value("coordinator.auto") === false) return machine ? `${machine}/${id}` : id;
-  const t = await execTemplate(hub, "assistant", machine);
+  const t = await execTemplate(hub, assistantTemplate(id), machine);
   await run(["hc", "run", "--bg", "--keep", "--no-parent", ...(machine ? ["--on", machine] : []), "--cwd", abs,
     "--label", "herdr.role=coordinator", "--label", `herdr.coordinator.space=${id}`, "--label", `herdr.space=${id}`, t.name]);
   t.done();
