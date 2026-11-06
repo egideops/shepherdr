@@ -56,11 +56,9 @@ New files (the fork's own, no upstream lines):
 
 | File | What |
 | --- | --- |
-| `core/omp.js` | the adapter: omp's log as a conversation (fed by `chat-log.js` with its own helpers injected), and its argv (`keptArgv`, `freshArgv`, `argvFor`, `sessionOf` = the file path, `forkArgv`, `current`, `menu`) |
 | `service/omp.ts` | the service side: `assistantTemplate(scope)` (the setting → template name) and `forkedFile` (a fork is a copy of the session file, resumed) |
 | `templates/assistant-omp.md` | the Assistant template on omp |
-| `core/omp.test.js` | the adapter's tests (fixture from a real disposable omp session) |
-| `docs/OMP-FORK.md` | this file |
+| `core/omp.test.js`, `docs/OMP-FORK.md` | the adapter's tests (fixture from a real disposable omp session); this file |
 
 Inclusion points in upstream files — every omp addition is a parallel branch (`if kind === "omp"`
 or one map entry), never a rewrite; ~90 changed lines in total, of which ~35 are the FIND/LOG
@@ -90,10 +88,13 @@ are: rebase, test, reinstall:
 ```bash
 cd <the fork clone>
 git fetch origin
-git rebase origin/main            # conflicts: every omp piece is a parallel branch; take both sides
+git rebase origin/main            # a conflict is one hunk in one file: take both sides
+# the rebase leaves generated mods copies stale (they are committed files): drop the changed
+# ones and regenerate them, or sync-shared's hand-edit guard refuses
+for f in $(git diff --name-only 'HEAD@{1}'.. 2>/dev/null | grep '^mods/.*/core/'); do git rm -q "$f"; done 2>/dev/null
 bin/sync-shared && bin/sync-shared --check
+bun web/build-plugins.ts && bunx tsc --noEmit -p . && bun test service core web && (cd web && bunx vite build)
 python3 -m unittest discover -s test          # (5 AutomationFromAnotherMachine tests fail on some machines' env, upstream too)
-bun test service core web && bunx tsc --noEmit -p . && (cd web && bunx vite build)
 ./install.sh                    # or --root <scratch> first; then `shepherdr doctor`
 ```
 
@@ -104,6 +105,12 @@ If a release moves one of the touched spots (rare: they're stable seams), the co
 hunk in one file: keep upstream's change, re-add the single omp line. The awk rules in
 `chat-log.js` are the only block of real omp logic in an upstream file; everything else calls
 into `core/omp.js`.
+
+**Drilled 2026-11-06** against a simulated 3.1.15 that edited the exact lines the fork touches
+(the `knownAgents` map gained a third CLI, the Codex fd-scan rule changed): the rebase produced
+one conflict on one line (both sides had added an entry to the same map — resolution: keep
+both), one stale generated copy (`git rm` + `bin/sync-shared`), then all checks green
+(413 tests, tsc, the repo's python suite at its upstream baseline).
 
 ### `shepherdr update` and the fork
 
@@ -136,8 +143,8 @@ files were never touched.
    file, memory intact: it answered a question about the session's first message); `restart.sh`
    kills and waits before the resuming start. Probe + manual `restart.sh` run.
 4. **`shepherdr doctor`** passes on a scratch install of the fork.
-5. **Rebase**: rebased onto upstream `main` (3.1.10 → 3.1.14) without conflicts during
-   development; the playbook above re-runs it per release.
+5. **Rebase**: the drill above ran end to end (simulated 3.1.15 touching the fork's own lines →
+   rebase → one-line conflict resolved → checks green); the playbook is the executed procedure.
 6. **Diff**: ~90 changed lines in upstream source files (see the table), everything else new
    files and generated copies.
 
