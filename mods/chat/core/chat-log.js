@@ -5,6 +5,9 @@
 // log is ~/.claude/projects/*/<sessionId>.jsonl. Codex keeps its rollout file open, so the
 // file is whatever rollout-*.jsonl its process (or a child) holds. Both are exact: no
 // guessing by folder or time, so two agents in one folder never get mixed up.
+// omp (core/omp.js): its own session jsonl, read the same way — found by the file its process
+// writes, its records mapped to the same items by the omp adapter.
+import * as OMP from "./omp.js";
 
 // Prints the log's path on the agent's machine, or nothing. Args: kind, pid.
 export const FIND = `
@@ -18,6 +21,14 @@ for p in "$pid" $(kids "$pid"); do
     [ -n "$id" ] || continue
     for f in "$HOME"/.claude/projects/*/"$id".jsonl; do [ -f "$f" ] && { echo "$f"; exit 0; }; done
     echo "pending"; exit 0
+  elif [ "$kind" = omp ]; then
+    # the session jsonl omp (or a child) holds open under a sessions tree
+    if [ -d "/proc/$p/fd" ]; then
+      f=$(for d in /proc/$p/fd/*; do readlink "$d"; done 2>/dev/null | grep '/agent/sessions/.*\\.jsonl$' | head -1)
+    else
+      f=$(lsof -p "$p" -Fn 2>/dev/null | sed -n 's/^n//p' | grep '/agent/sessions/.*\\.jsonl$' | head -1)
+    fi
+    [ -n "$f" ] && { echo "$f"; exit 0; }
   else
     if [ -d "/proc/$p/fd" ]; then
       f=$(for d in /proc/$p/fd/*; do readlink "$d"; done 2>/dev/null | grep '/rollout-.*\\.jsonl$' | head -1)
@@ -27,6 +38,15 @@ for p in "$pid" $(kids "$pid"); do
     [ -n "$f" ] && { echo "$f"; exit 0; }
   fi
 done
+if [ "$kind" = omp ]; then
+  # omp idle holds no file open: the newest jsonl of its sessions (the --session-dir its command
+  # line names, else omp's own tree) whose session record names the terminal's cwd, from its start
+  cwd="$3"; created=\${4:-0}
+  dir=$(tr '\\0' '\\n' < /proc/$pid/cmdline 2>/dev/null | awk 'p=="--session-dir"{print;exit} /^--session-dir=/{sub(/^--session-dir=/,"");print;exit} {p=$0}')
+  [ -n "$dir" ] || dir="$HOME/.omp/agent/sessions"
+  find "$dir" -name '*.jsonl' -type f -newermt "@$((created / 1000 - 60))" | xargs -r ls -t 2>/dev/null \
+    | while IFS= read -r c; do head -c 4096 "$c" 2>/dev/null | grep -Fq "\\\"cwd\\\":\\\"$cwd\\\"" && { echo "$c"; break; }; done
+fi
 true`;
 
 // Reads a log on the agent's machine, sending back only what the chat shows. Each kept line
@@ -95,6 +115,15 @@ BEGIN { pos = base; first = base; msgs = 0 }
   } else if (index(head, "\"type\":\"event_msg\"")) {
     if (index(head, "\"task_complete\"") || index(head, "\"turn_aborted\"") || index(head, "\"token_count\"")) keep = 1
   } else if (index(head, "\"type\":\"turn_context\"")) {
+    keep = 1
+  } else if (substr(head, 1, 15) == "{\"type\":\"messag" || index(head, "\"type\":\"model_change\"") == 2 || index(head, "\"type\":\"thinking_level_change\"") == 2 || index(head, "\"customType\":\"tool_execution_start\"")) {
+    # omp (core/omp.js): its message records; and, read whole for its parser only, what names the
+    # model and thinking level it runs on and the execution record a result answers
+    if (index(head, "\"customType\":\"tool_execution_start\"") || index(head, "\"type\":\"model_change\"") || index(head, "\"type\":\"thinking_level_change\"")) {
+      if (count || length(line) > 65536) next
+      print off "\tJ\t" line
+      next
+    }
     keep = 1
   }
   if (!keep) next
@@ -608,6 +637,8 @@ export class Conversation {
     // Claude Code's queue of what was typed while it works, in order: { id, raw, at, text?,
     // images? } (text only for the person's words; a job's end has a place too).
     this.queue = [];
+    // omp: its execution records by id -> the tool call they run (a result answers through it)
+    this.execOf = new Map();
   }
 
   push(item) {
@@ -842,7 +873,8 @@ export class Conversation {
       }
       const l = parse(r.data);
       if (!l || typeof l !== "object") continue;
-      if (this.kind === "codex") this.codex(l, r.off); else this.claude(l, r.off);
+      if (this.kind === "omp") OMP.feed(this, l, r.off, { step: claudeStep, userOf: claudeUser, time });
+      else if (this.kind === "codex") this.codex(l, r.off); else this.claude(l, r.off);
     }
   }
 
@@ -1005,7 +1037,8 @@ export function resultText(line, id) {
   const l = parse(line);
   if (l) {
     const c = l.message?.content;
-    if (Array.isArray(c)) {
+    if (l.message?.role === "toolResult" && Array.isArray(c)) text = c.map((x) => x?.text ?? "").join("\n");  // omp's answer to a call
+    if (text === null && Array.isArray(c)) {
       const b = c.find((x) => x?.type === "tool_result" && x.tool_use_id === id) ?? c.find((x) => x?.type === "tool_result");
       const v = b?.content;
       text = typeof v === "string" ? v : Array.isArray(v) ? v.map((x) => x?.text ?? "").join("\n") : null;

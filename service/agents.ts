@@ -113,7 +113,7 @@ export class Agents {
     const [claude, codex] = await Promise.all([this.defaults("claude", machine), this.defaults("codex", machine)]);
     const dflt: any = { claude, codex };
     const c = current(kind, t.foreground?.argv ?? t.argv ?? [], reader?.conv?.meta ?? {}, dflt[kind]);
-    const clis = ["claude", "codex"].map((k) => {
+    const clis = ["claude", "codex", "omp"].map((k) => {
       const m = menuFor(k, dflt[k], k === kind ? c.model : null);
       return { kind: k, name: NAMES[k], models: m.models.map((x: any) => ({ id: x.id, label: x.name, efforts: x.efforts, ...(x.defaultEffort ? { defaultEffort: x.defaultEffort } : {}) })),
         speeds: m.models.some((x: any) => x.fast) ? ["normal", "fast"] : ["normal"] };

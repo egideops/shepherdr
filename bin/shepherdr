@@ -330,7 +330,7 @@ def unit_text(root, bun, port=None):
     main = os.path.join(root, SHARE, "service", "main.ts")
     # hc, herdr-task and the helpers live in ~/.local/bin, which a user service's PATH lacks; and the tools herdr-task
     # and the agents run (gh, git, node, agent-browser, the CLIs…) where this install finds them (mise, nvm, brew…)
-    tools = ["gh", "git", "node", "agent-browser", "claude", "codex", "python3", "tailscale", "pw-record", "pw-play", "jq"]
+    tools = ["gh", "git", "node", "agent-browser", "claude", "codex", "omp", "python3", "tailscale", "pw-record", "pw-play", "jq"]
     found = [os.path.dirname(os.path.realpath(p)) if os.path.basename(os.path.realpath(p)) == t else os.path.dirname(p)
              for t in tools for p in [shutil.which(t)] if p]
     dirs = [os.path.join(root, BIN), os.path.dirname(bun), *found, "/usr/local/bin", "/opt/homebrew/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"]

@@ -18,6 +18,8 @@ space=$(get '.labels["herdr.space"]') tab=$(get '.labels["herdr.tab"]') role=$(g
 # Assistants start from the assistant template (earlier ones from "coordinator").
 case $(get .template) in assistant|coordinator) role=coordinator ;; esac
 cwd=$(get .cwd) app=$(get .status.app) pid=$(get .foreground.pid) created=$(get .created_ms)
+# An Assistant that ran omp starts again from the fork's omp template (docs/OMP-FORK.md).
+tpl=assistant; [ "$app" = omp ] || [ "$(get .foreground.name)" = omp ] && tpl=assistant-omp
 # A parked agent (behind a chat) has no tab labels: the chat names where it goes instead.
 # A coordinator in Chat mode says where it lives in its own labels (its workers name that tab).
 [ -n "$tab" ] || tab=$(get '.labels["herdr.coordinator.tab"]')
@@ -72,9 +74,16 @@ fi
 if [ -n "${HERDR_RESTART_RESUME:-}" ] && [ -n "$argv" ]; then
   mapfile -t cmd < <(jq -r '.[]' <<<"$argv")
   [ ${#cmd[@]} -gt 0 ] || exit 1
+  # omp appends the same session file it resumes (docs/OMP-FORK.md): the old process must be
+  # gone before the new one starts — never two omp on one file. Other CLIs start beside the old.
+  if [ "$(basename "${cmd[0]}")" = omp ] && [ "$(jq -r '.state // empty' <<<"$info")" = live ]; then
+    oldpid=$(jq -r '.foreground.pid // empty' <<<"$info")
+    hc kill "$old" >/dev/null 2>&1
+    i=0; while [ -n "$oldpid" ] && kill -0 "$oldpid" 2>/dev/null && [ "$i" -lt 150 ]; do sleep 0.1; i=$((i+1)); done
+  fi
   new=$(hc run --bg --json --no-parent --cwd "$cwd" "${labels[@]}" --label "herdr.agent=$(basename "${cmd[0]}")" -- "${cmd[@]}" | jq -r '.address // empty')
 elif [ -z "$argv" ] && [ "$role" = coordinator ]; then
-  new=$(hc run --bg --json --no-parent --cwd "$cwd" "${labels[@]}" assistant "$handoff" | jq -r .address)
+  new=$(hc run --bg --json --no-parent --cwd "$cwd" "${labels[@]}" "$tpl" "$handoff" | jq -r .address)
 else
   mapfile -t cmd < <(jq -r '.[]' <<<"$argv")
   [ ${#cmd[@]} -gt 0 ] || exit 1
@@ -83,7 +92,7 @@ else
   [ "$key" = codex ] && [[ " ${cmd[*]} " != *" --no-daemon "* ]] && cmd+=(--no-daemon)
   msg=$handoff
   if [ "$role" = coordinator ]; then
-    body=$(awk 'f>=2 {print} /^---[[:space:]]*$/ {f++}' "$HOME/.config/herdr-core/templates/assistant.md")
+    body=$(awk 'f>=2 {print} /^---[[:space:]]*$/ {f++}' "$HOME/.config/herdr-core/templates/$tpl.md")
     msg="$body"$'\n\n'"$handoff"
   fi
   # hc delivers a template's first message once the agent is ready, so the

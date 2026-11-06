@@ -41,6 +41,7 @@ import { TaskLogs } from "./task-logs.ts";
 import { Settings, onWritten, PUSH, pushBody } from "./settings.ts";
 import { Secrets, SecretsHome } from "./secrets.ts";
 import { Agents } from "./agents.ts";
+import * as OMP from "./omp.ts";
 import { Machines } from "./machines.ts";
 import { Push, alertsOf, agentAlerts } from "./push.ts";
 import { dictate, liveToken } from "./dictate.ts";
@@ -185,6 +186,7 @@ setInterval(() => {
   void moveSecrets(null).catch(() => {});
 }, 30_000);
 const settings = new Settings();
+OMP.setAgentOf((role, scope) => settings.agentOf(role, scope));
 // Settings › Agents' model menu and buttons (core/settings.js choicesFrom), from each CLI's own settings here, read
 // again every ten minutes; a CLI herdr-task's check finds missing here isn't offered
 const readDefaults = async () => {
