@@ -96,7 +96,7 @@ export class Agents {
   async choices(machine: string | null) {
     const [claude, codex] = await Promise.all([this.defaults("claude", machine), this.defaults("codex", machine)]);
     const dflt: any = { claude, codex };
-    return ["claude", "codex"].map((k) => {
+    return ["claude", "codex", "omp"].map((k) => {
       const m = menuFor(k, dflt[k], null);
       // its permission modes, and the one a new agent gets unless picked (the CLI's own: Claude Code's settings mode)
       return { kind: k, name: NAMES[k], models: m.models.map((x: any) => ({ id: x.id, label: x.name, efforts: x.efforts, ...(x.defaultEffort ? { defaultEffort: x.defaultEffort } : {}) })),
