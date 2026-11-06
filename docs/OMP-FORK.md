@@ -167,13 +167,20 @@ lands, this fork reduces to the `assistant-omp` template plus a settings line.
 ## Deployed (2026-11-06)
 
 The founder's machine (fabrika-01) runs this fork: window files + templates and the web service
-installed from the branch (service 3.1.14, a systemd restart of a few seconds), the Assistant
-setting on omp Everywhere (`~/.herdr/shepherdr.json`), `assistant-omp.md` beside her own
-templates. What the install replaced is backed up under
-`~/.config/herdr-app/.shepherdr-backup/20261106-165817`. **Rollback**: `cd ~/shepherdr &&
-git pull --ff-only && ./install.sh --yes && ./install.sh --web --yes` (upstream 3.1.x back over
-it), and drop the `coordinator.agent` line from `~/.herdr/shepherdr.json`. omp sessions are one
-per conversation; nothing needs deleting.
+installed from `~/shepherdr` (the fork-local clone, `origin` = `egideops/shepherdr`, this branch
+merged into its `main`; service 3.1.14), the Assistant setting on omp Everywhere
+(`~/.herdr/shepherdr.json`), `assistant-omp.md` beside her own templates. What the first install
+replaced is backed up under `~/.config/herdr-app/.shepherdr-backup/20261106-165817`.
+
+- **Update to a newer fork main**: `git -C ~/shepherdr pull --ff-only && cd ~/shepherdr &&
+  ./install.sh --yes && ./install.sh --web --yes` (a systemd restart of seconds), then
+  `shepherdr doctor`.
+- **Rollback to upstream**: `git -C ~/shepherdr checkout ea72e9f && cd ~/shepherdr &&
+  ./install.sh --yes && ./install.sh --web --yes`, and drop the `coordinator.agent` line from
+  `~/.herdr/shepherdr.json`. omp sessions are one per conversation; nothing needs deleting.
+- Never `shepherdr update` while the clone is on a fork main that carries omp: it only pulls and
+  reinstalls from the clone (that is the flow above); the updater's own `.new`/backup safety is
+  the second net either way.
 
 Note: `restart.sh` (Switch agent / model restart, upstream's own) needs `jq` on the service
 PATH — this machine had none, so a static jq 1.7.1 now sits in `~/.local/bin` (already on the
