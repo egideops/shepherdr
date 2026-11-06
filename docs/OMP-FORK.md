@@ -159,3 +159,18 @@ a rewrite: lift the two existing branches into `core/claude.js`/`core/codex.js` 
 `core/omp.js`, route the dispatches through a registry, and ship omp as the second consumer that
 proves the seam. Open it against `eliasstravik/shepherdr` only with the founder's go-ahead; if it
 lands, this fork reduces to the `assistant-omp` template plus a settings line.
+
+## Deployed (2026-11-06)
+
+The founder's machine (fabrika-01) runs this fork: window files + templates and the web service
+installed from the branch (service 3.1.14, a systemd restart of a few seconds), the Assistant
+setting on omp Everywhere (`~/.herdr/shepherdr.json`), `assistant-omp.md` beside her own
+templates. What the install replaced is backed up under
+`~/.config/herdr-app/.shepherdr-backup/20261106-165817`. **Rollback**: `cd ~/shepherdr &&
+git pull --ff-only && ./install.sh --yes && ./install.sh --web --yes` (upstream 3.1.x back over
+it), and drop the `coordinator.agent` line from `~/.herdr/shepherdr.json`. omp sessions are one
+per conversation; nothing needs deleting.
+
+Note: `restart.sh` (Switch agent / model restart, upstream's own) needs `jq` on the service
+PATH — this machine had none, so a static jq 1.7.1 now sits in `~/.local/bin` (already on the
+unit's PATH).
